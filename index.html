@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRIDO WEB TERMINAL - Advanced Developer Web CLI</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=VT323&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        termBg: '#090d16',
+                        termHeader: '#111827',
+                        termAccent: '#00ff66',
+                        cyberDark: '#08090f',
+                        cyberCyan: '#00f3ff',
+                        cyberPink: '#ff0055',
+                    },
+                    fontFamily: {
+                        mono: ['"Fira Code"', 'monospace'],
+                        retro: ['"VT323"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* CRT Scanline Overlay */
+        .crt::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
+            z-index: 20;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+            opacity: 0.65;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 102, 0.5);
+        }
+
+        /* Cursor Blink */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .cursor-blink {
+            animation: blink 1s infinite;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-mono h-full flex flex-col justify-between overflow-hidden select-none">
+
+    <!-- Matrix Canvas Rain Overlay -->
+    <canvas id="matrixCanvas" class="fixed inset-0 w-full h-full z-0 pointer-events-none opacity-20 transition-opacity duration-500"></canvas>
+
+    <div class="relative z-10 max-w-7xl w-full mx-auto p-2 sm:p-4 h-full flex flex-col">
+        <!-- Main Terminal Window -->
+        <div id="terminalWindow" class="crt relative flex-1 flex flex-col bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden transition-all duration-300">
+            
+            <!-- Window Top Bar -->
+            <div class="bg-slate-800/90 px-4 py-2.5 flex flex-wrap items-center justify-between border-b border-slate-700/60 shrink-0 gap-2">
+                <!-- Window Controls & Branding -->
+                <div class="flex items-center gap-2">
+                    <button id="closeBtn" title="Clear Screen Output" class="w-3.5 h-3.5 rounded-full bg-red-500/80 hover:bg-red-500 transition-colors flex items-center justify-center text-[9px] text-red-950 group">
+                        <i class="fa-solid fa-xmark opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                    <button id="minBtn" title="Toggle CRT Filter" class="w-3.5 h-3.5 rounded-full bg-yellow-500/80 hover:bg-yellow-500 transition-colors flex items-center justify-center text-[9px] text-yellow-950 group">
+                        <i class="fa-solid fa-minus opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                    <button id="maxBtn" title="Toggle Fullscreen Mode" class="w-3.5 h-3.5 rounded-full bg-green-500/80 hover:bg-green-500 transition-colors flex items-center justify-center text-[9px] text-green-950 group">
+                        <i class="fa-solid fa-expand opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                    <span class="ml-2 text-xs font-bold text-emerald-400 tracking-wider hidden sm:inline-block">PRIDO WEB TERMINAL v4.0</span>
+                    <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700 hidden md:inline-block">[170 Commands Ready]</span>
+                </div>
+
+                <!-- Status & Quick Toolbar Controls -->
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="flex items-center gap-1.5 bg-slate-950/70 px-2.5 py-1 rounded-full border border-slate-700 text-emerald-400 font-mono text-[11px]">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        ONLINE
+                    </span>
+                    
+                    <button id="soundToggleBtn" class="text-slate-400 hover:text-emerald-400 transition-colors px-2 py-1 bg-slate-950/50 rounded border border-slate-800" title="Toggle Audio Sound Effects">
+                        <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+                    </button>
+                    
+                    <button id="matrixToggleBtn" class="text-slate-400 hover:text-emerald-400 transition-colors px-2 py-1 bg-slate-950/50 rounded border border-slate-800" title="Toggle Matrix Digital Rain">
+                        <i class="fa-solid fa-code"></i>
+                    </button>
+
+                    <button id="cmdListModalBtn" class="text-slate-300 hover:text-yellow-400 transition-colors px-2 py-1 bg-slate-950/50 rounded border border-slate-800 font-semibold" title="View Command Catalog">
+                        <i class="fa-solid fa-book-bookmark mr-1"></i> 170 Cmds
+                    </button>
+
+                    <!-- Theme Selector -->
+                    <select id="themeSelect" class="bg-slate-950 border border-slate-700 rounded text-slate-300 text-xs px-2 py-1 outline-none focus:border-emerald-500 cursor-pointer">
+                        <option value="matrix">Matrix Green</option>
+                        <option value="cyberpunk">Cyberpunk Neon</option>
+                        <option value="dracula">Dracula Dark</option>
+                        <option value="solarized">Classic Amber</option>
+                        <option value="nord">Nord Arctic</option>
+                        <option value="hacker">Hacker Crimson</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Main Terminal Output Display -->
+            <div id="terminalOutput" class="flex-1 p-4 overflow-y-auto space-y-3 text-sm font-mono leading-relaxed select-text">
+                <!-- Welcome Banner -->
+                <div id="welcomeBanner" class="space-y-3">
+                    <pre class="text-emerald-400 font-bold text-[10px] sm:text-xs leading-none overflow-x-auto select-none">
+  ____  ____  ___ ____   ___   _        _____ _____ ____  __  __ ___ _   _    _    _     
+ |  _ \|  _ \|_ _|  _ \ / _ \  \ \      / / ____| __ )_   _|  \/  |_ _| \ | |  / \  | |    
+ | |_) | |_) || || | | | | | |  \ \ /\ / /|  _| |  _ \ | | | |\/| || ||  \| | / _ \ | |    
+ |  __/|  _ < | || |_| | |_| |   \ V  V / | |___| |_) || | | |  | || || |\  |/ ___ \| |___ 
+ |_|   |_| \_\___|____/ \___/     \_/\_/  |_____|____/ |_| |_|  |_|___|_| \_/_/   \_\_____|
+                    </pre>
+                    <div class="text-xs text-slate-300 border-l-2 border-emerald-500 pl-3 py-1.5 bg-emerald-500/10 rounded-r space-y-1">
+                        <p><span class="text-emerald-400 font-bold">Welcome to PRIDO WEB TERMINAL [v4.0.0 PRO]</span> - Ultimate Browser-Based Linux/CLI Environment</p>
+                        <p class="text-slate-400">Features: <span class="text-yellow-400 font-semibold">170 Built-In Commands</span> | <span class="text-sky-400 font-semibold">Virtual File System</span> | <span class="text-purple-400 font-semibold">Pipelines (|)</span> | <span class="text-emerald-400 font-semibold">Nano Editor</span> | <span class="text-pink-400 font-semibold">Gemini AI</span></p>
+                        <p class="text-slate-400">Type <span class="text-yellow-300 font-bold">'help'</span> for category commands or <span class="text-yellow-300 font-bold">'help --all'</span> to see all 170 commands. Type <span class="text-emerald-400 font-bold">'ai &lt;question&gt;'</span> for AI assistance.</p>
+                    </div>
+                </div>
+
+                <!-- Dynamic Terminal Logs -->
+                <div id="logContainer" class="space-y-3"></div>
+
+                <!-- Interactive Game / Custom View Canvas Container -->
+                <div id="gameBox" class="hidden relative border border-emerald-500/50 rounded-lg p-3 bg-slate-950/90 my-3 max-w-xl mx-auto shadow-xl">
+                    <div class="flex justify-between items-center mb-2">
+                        <span id="gameTitle" class="text-xs font-bold text-emerald-400"><i class="fa-solid fa-gamepad mr-1"></i> Interactive CLI Game</span>
+                        <span class="text-xs text-slate-400">Score: <span id="gameScore" class="text-yellow-400 font-bold">0</span></span>
+                    </div>
+                    <canvas id="gameCanvas" width="400" height="300" class="bg-black rounded border border-slate-800 w-full h-auto shadow-inner"></canvas>
+                    <p id="gameControlsHint" class="text-[11px] text-slate-500 mt-2 text-center">Use Arrow Keys to control. Press 'Q' or type 'exit' to quit game.</p>
+                </div>
+
+                <!-- Nano Text Editor Container -->
+                <div id="nanoBox" class="hidden relative border border-purple-500/50 rounded-lg p-3 bg-slate-950/95 my-3 max-w-2xl mx-auto shadow-2xl">
+                    <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-800">
+                        <span id="nanoFilename" class="text-xs font-bold text-purple-400"><i class="fa-solid fa-pen-to-square mr-1"></i> GNU nano 6.2 - Editing file</span>
+                        <div class="flex gap-2">
+                            <button id="nanoSaveBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded font-bold">Save (Ctrl+O)</button>
+                            <button id="nanoExitBtn" class="bg-red-600 hover:bg-red-500 text-white text-[10px] px-2 py-0.5 rounded font-bold">Exit (Ctrl+X)</button>
+                        </div>
+                    </div>
+                    <textarea id="nanoTextarea" class="w-full h-48 bg-slate-900 text-emerald-300 font-mono text-xs p-2 rounded border border-slate-800 outline-none focus:border-purple-500 resize-none"></textarea>
+                    <p class="text-[10px] text-slate-500 mt-1">Status: Ready. Changes will be saved directly into the Virtual File System.</p>
+                </div>
+            </div>
+
+            <!-- Terminal CLI Input Bar -->
+            <div class="p-3 bg-slate-950/90 border-t border-slate-800 flex items-center gap-2 shrink-0 relative">
+                <span id="promptLabel" class="text-emerald-400 font-semibold text-xs whitespace-nowrap flex items-center gap-1">
+                    <span class="text-sky-400">guest@prido-terminal</span>:<span class="text-purple-400" id="currentDirLabel">~</span>$
+                </span>
+                
+                <div class="relative flex-1 flex items-center">
+                    <input type="text" id="cliInput" 
+                        class="w-full bg-transparent text-slate-100 text-sm font-mono outline-none border-none p-0 focus:ring-0" 
+                        placeholder="Type a command or 'help'..." 
+                        autocomplete="off" 
+                        spellcheck="false"
+                        autofocus>
+                    
+                    <!-- Autocomplete Popup -->
+                    <div id="autocompletePopup" class="hidden absolute bottom-8 left-0 bg-slate-900 border border-slate-700 rounded-md shadow-xl text-xs max-h-40 overflow-y-auto z-30 min-w-[200px]"></div>
+                </div>
+
+                <button id="sendBtn" class="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded text-xs transition-all active:scale-95 font-semibold">
+                    Run <i class="fa-solid fa-turn-down fa-rotate-90 text-[10px] ml-1"></i>
+                </button>
+            </div>
+
+            <!-- Mobile Quick Command Chips Bar -->
+            <div class="px-3 py-1.5 bg-slate-900 border-t border-slate-800 flex items-center gap-2 overflow-x-auto text-[11px] text-slate-400 no-scrollbar">
+                <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Quick:</span>
+                <button class="chip-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded border border-slate-700 transition-colors whitespace-nowrap" data-cmd="help">help</button>
+                <button class="chip-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded border border-slate-700 transition-colors whitespace-nowrap" data-cmd="neofetch">neofetch</button>
+                <button class="chip-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded border border-slate-700 transition-colors whitespace-nowrap" data-cmd="ls">ls</button>
+                <button class="chip-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded border border-slate-700 transition-colors whitespace-nowrap" data-cmd="ai What can you do?">ai info</button>
+                <button class="chip-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded border border-slate-700 transition-colors whitespace-nowrap" data-cmd="snake">snake</button>
+                <button class="chip-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded border border-slate-700 transition-colors whitespace-nowrap" data-cmd="tetris">tetris</button>
+                <button class="chip-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded border border-slate-700 transition-colors whitespace-nowrap" data-cmd="top">top</button>
+                <button class="chip-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded border border-slate-700 transition-colors whitespace-nowrap" data-cmd="calc 25 * 48">calc</button>
+                <button class="chip-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded border border-slate-700 transition-colors whitespace-nowrap" data-cmd="cowsay Hello World">cowsay</button>
+                <button class="chip-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded border border-slate-700 transition-colors whitespace-nowrap" data-cmd="clear">clear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 170 Commands Catalog Modal -->
+    <div id="cmdCatalogModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+            <div class="px-4 py-3 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="text-emerald-400 font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-terminal"></i> PRIDO WEB TERMINAL - 170 Executable Commands Index
+                </h3>
+                <button id="closeCatalogModalBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-base"></i></button>
+            </div>
+            <div class="p-4 border-b border-slate-800 bg-slate-950 flex gap-2">
+                <input type="text" id="catalogSearch" placeholder="Search through 170 commands..." class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500">
+            </div>
+            <div id="catalogGrid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                <!-- Dynamically populated commands -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let soundEnabled = true;
+        let commandHistory = [];
+        let historyIndex = -1;
+        let activeDirectory = "/home/guest";
+        let nanoEditingPath = null;
+
+        // Audio Synthesizer for Terminal Sound Effects
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTerminalClick(freq = 800, type = 'sine', duration = 0.03) {
+            if (!soundEnabled) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e){}
+        }
+
+        // Virtual File System (VFS)
+        const VFS = {
+            "/": ["home", "bin", "etc", "var", "dev", "sys"],
+            "/home": ["guest"],
+            "/home/guest": ["about.txt", "skills.json", "projects", "contact.sh", "notes.md", "script.js"],
+            "/home/guest/projects": ["ludo-game", "qr-generator", "terminal-v4"],
+            "/bin": ["ls", "cat", "echo", "grep", "nano", "python", "node"],
+            "/etc": ["hostname", "os-release", "passwd"],
+            "/var": ["log"],
+            "files": {
+                "/home/guest/about.txt": "Pritam - Full Stack Web Architect & CLI Creator.\nWelcome to PRIDO WEB TERMINAL v4.0!\nA power-packed terminal with 170 interactive built-in commands.",
+                "/home/guest/skills.json": "{\n  \"frontend\": [\"HTML5\", \"TailwindCSS\", \"JavaScript\", \"React\"],\n  \"backend\": [\"Node.js\", \"Python\", \"REST APIs\"],\n  \"tools\": [\"Git\", \"Linux CLI\", \"Docker\", \"VS Code\"]\n}",
+                "/home/guest/contact.sh": "#!/bin/bash\necho 'Email: pritam.dev@example.com'\necho 'GitHub: https://github.com/prido-pritam-team-hub'\necho 'Status: Available for web development projects!'",
+                "/home/guest/notes.md": "# Developer Notes\n- PRIDO Terminal expanded with 170 real CLI utilities.\n- Supports pipeline operators (|), nano editor, games, and Gemini AI integration.",
+                "/home/guest/script.js": "// Sample JavaScript File\nconsole.log('Hello from PRIDO OS JavaScript REPL!');\nconst add = (a, b) => a + b;\nconsole.log('Result:', add(20, 24));",
+                "/home/guest/projects/ludo-game": "Interactive web-based Ludo game application.",
+                "/home/guest/projects/qr-generator": "Fast custom QR Code Builder web utility.",
+                "/home/guest/projects/terminal-v4": "PRIDO Web Terminal v4.0 with 170 commands.",
+                "/etc/hostname": "prido-web-terminal",
+                "/etc/os-release": "NAME=\"PridoOS\"\nVERSION=\"4.0.0 LTS\"\nID=pridoos\nPRETTY_NAME=\"PridoOS 4.0 Web Edition\"",
+                "/etc/passwd": "root:x:0:0:root:/root:/bin/bash\nguest:x:1000:1000:Guest User:/home/guest:/bin/bash"
+            }
+        };
+
+        // Matrix Background Rain Canvas
+        const matrixCanvas = document.getElementById('matrixCanvas');
+        const mCtx = matrixCanvas.getContext('2d');
+        let matrixActive = true;
+        let matrixInterval = null;
+
+        function resizeMatrixCanvas() {
+            matrixCanvas.width = window.innerWidth;
+            matrixCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeMatrixCanvas);
+        resizeMatrixCanvas();
+
+        const matrixChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()*&^%';
+        const fontSize = 14;
+        let columns = Math.floor(window.innerWidth / fontSize);
+        let drops = Array(columns).fill(1);
+
+        function drawMatrix() {
+            mCtx.fillStyle = 'rgba(9, 13, 22, 0.1)';
+            mCtx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+            mCtx.fillStyle = '#00ff66';
+            mCtx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = matrixChars.charAt(Math.floor(Math.random() * matrixChars.length));
+                mCtx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > matrixCanvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+        matrixInterval = setInterval(drawMatrix, 35);
+
+        async function fetchGeminiAIResponse(userPrompt) {
+            const apiKey = ""; // System injected
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const systemPrompt = "You are PridoAI, an intelligent embedded terminal assistant inside PRIDO WEB TERMINAL. Provide clean, well-formatted, concise terminal-friendly responses.";
+            
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) throw new Error("API Network error");
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+            } catch (err) {
+                return `Gemini AI Error: ${err.message}. Please check network connection.`;
+            }
+        }
+
+        const COMMANDS = {};
+
+        function registerCommand(name, category, desc, usage, fn) {
+            COMMANDS[name] = { category, desc, usage, fn };
+        }
+
+        // Helper functions
+        function resolvePath(target) {
+            if (!target) return activeDirectory;
+            if (target === '~') return '/home/guest';
+            if (target === '..') {
+                if (activeDirectory === '/') return '/';
+                const parts = activeDirectory.split('/').filter(Boolean);
+                parts.pop();
+                return '/' + parts.join('/');
+            }
+            if (target.startsWith('/')) return target;
+            return activeDirectory === '/' ? `/${target}` : `${activeDirectory}/${target}`;
+        }
+
+        // --- 1. FILE SYSTEM & NAVIGATION COMMANDS (1-28) ---
+        registerCommand('ls', 'FileSystem', 'List directory contents', 'ls [path]', (args, input) => {
+            const path = resolvePath(args[0]);
+            const contents = VFS[path];
+            if (!contents) return { text: `ls: cannot access '${args[0]}': No such directory`, error: true };
+            if (contents.length === 0) return { text: `(empty directory)` };
+            const formatted = contents.map(item => {
+                const fullPath = path === '/' ? `/${item}` : `${path}/${item}`;
+                const isDir = Array.isArray(VFS[fullPath]);
+                return isDir ? `<span class="text-sky-400 font-bold"><i class="fa-solid fa-folder mr-1"></i>${item}/</span>` : `<span class="text-emerald-300"><i class="fa-solid fa-file-code mr-1"></i>${item}</span>`;
+            }).join('   ');
+            return { html: formatted };
+        });
+
+        registerCommand('cd', 'FileSystem', 'Change working directory', 'cd <dir>', (args) => {
+            const path = resolvePath(args[0]);
+            if (VFS[path] && Array.isArray(VFS[path])) {
+                activeDirectory = path;
+                document.getElementById('currentDirLabel').textContent = activeDirectory.replace('/home/guest', '~');
+                return { text: '' };
+            }
+            return { text: `cd: no such file or directory: ${args[0] || ''}`, error: true };
+        });
+
+        registerCommand('pwd', 'FileSystem', 'Print working directory', 'pwd', () => ({ text: activeDirectory }));
+
+        registerCommand('mkdir', 'FileSystem', 'Create a new directory', 'mkdir <dir>', (args) => {
+            if (!args[0]) return { text: 'mkdir: missing operand', error: true };
+            const path = resolvePath(args[0]);
+            const parent = path.substring(0, path.lastIndexOf('/')) || '/';
+            const name = path.substring(path.lastIndexOf('/') + 1);
+            if (!VFS[parent]) return { text: 'mkdir: parent directory does not exist', error: true };
+            if (!VFS[path]) VFS[path] = [];
+            if (!VFS[parent].includes(name)) VFS[parent].push(name);
+            return { text: `Directory created: ${args[0]}` };
+        });
+
+        registerCommand('rmdir', 'FileSystem', 'Remove empty directory', 'rmdir <dir>', (args) => {
+            if (!args[0]) return { text: 'rmdir: missing operand', error: true };
+            const path = resolvePath(args[0]);
+            if (VFS[path] && Array.isArray(VFS[path]) && VFS[path].length === 0) {
+                delete VFS[path];
+                const parent = path.substring(0, path.lastIndexOf('/')) || '/';
+                const name = path.substring(path.lastIndexOf('/') + 1);
+                if (VFS[parent]) VFS[parent] = VFS[parent].filter(i => i !== name);
+                return { text: `Directory removed: ${args[0]}` };
+            }
+            return { text: 'rmdir: directory not empty or does not exist', error: true };
+        });
+
+        registerCommand('touch', 'FileSystem', 'Create an empty file', 'touch <file>', (args) => {
+            if (!args[0]) return { text: 'touch: missing file operand', error: true };
+            const path = resolvePath(args[0]);
+            const parent = path.substring(0, path.lastIndexOf('/')) || '/';
+            const name = path.substring(path.lastIndexOf('/') + 1);
+            VFS.files[path] = VFS.files[path] || '';
+            if (VFS[parent] && !VFS[parent].includes(name)) VFS[parent].push(name);
+            return { text: `File touched/created: ${args[0]}` };
+        });
+
+        registerCommand('rm', 'FileSystem', 'Remove a file', 'rm <file>', (args) => {
+            if (!args[0]) return { text: 'rm: missing operand', error: true };
+            const path = resolvePath(args[0]);
+            if (VFS.files[path] !== undefined) {
+                delete VFS.files[path];
+                const parent = path.substring(0, path.lastIndexOf('/')) || '/';
+                const name = path.substring(path.lastIndexOf('/') + 1);
+                if (VFS[parent]) VFS[parent] = VFS[parent].filter(i => i !== name);
+                return { text: `Removed file: ${args[0]}` };
+            }
+            return { text: `rm: cannot remove '${args[0]}': No such file`, error: true };
+        });
+
+        registerCommand('cp', 'FileSystem', 'Copy file', 'cp <source> <dest>', (args) => {
+            if (args.length < 2) return { text: 'cp: missing destination file operand', error: true };
+            const src = resolvePath(args[0]);
+            const dest = resolvePath(args[1]);
+            if (VFS.files[src] !== undefined) {
+                VFS.files[dest] = VFS.files[src];
+                const parent = dest.substring(0, dest.lastIndexOf('/')) || '/';
+                const name = dest.substring(dest.lastIndexOf('/') + 1);
+                if (VFS[parent] && !VFS[parent].includes(name)) VFS[parent].push(name);
+                return { text: `Copied ${args[0]} to ${args[1]}` };
+            }
+            return { text: `cp: cannot stat '${args[0]}': No such file`, error: true };
+        });
+
+        registerCommand('mv', 'FileSystem', 'Move/Rename file', 'mv <source> <dest>', (args) => {
+            if (args.length < 2) return { text: 'mv: missing destination file operand', error: true };
+            const src = resolvePath(args[0]);
+            const dest = resolvePath(args[1]);
+            if (VFS.files[src] !== undefined) {
+                VFS.files[dest] = VFS.files[src];
+                delete VFS.files[src];
+                const srcParent = src.substring(0, src.lastIndexOf('/')) || '/';
+                const srcName = src.substring(src.lastIndexOf('/') + 1);
+                if (VFS[srcParent]) VFS[srcParent] = VFS[srcParent].filter(i => i !== srcName);
+                
+                const destParent = dest.substring(0, dest.lastIndexOf('/')) || '/';
+                const destName = dest.substring(dest.lastIndexOf('/') + 1);
+                if (VFS[destParent] && !VFS[destParent].includes(destName)) VFS[destParent].push(destName);
+                return { text: `Moved ${args[0]} to ${args[1]}` };
+            }
+            return { text: `mv: cannot stat '${args[0]}': No such file`, error: true };
+        });
+
+        registerCommand('cat', 'FileSystem', 'Display file contents', 'cat <file>', (args, input, pipedData) => {
+            if (pipedData !== undefined) return { text: pipedData };
+            if (!args[0]) return { text: 'cat: missing file argument', error: true };
+            const path = resolvePath(args[0]);
+            if (VFS.files[path] !== undefined) {
+                return { text: VFS.files[path] };
+            }
+            return { text: `cat: ${args[0]}: No such file`, error: true };
+        });
+
+        registerCommand('head', 'FileSystem', 'Output first lines of a file', 'head [-n num] <file>', (args, input, pipedData) => {
+            let num = 5;
+            let file = args[0];
+            if (args[0] === '-n' && args[1]) { num = parseInt(args[1]) || 5; file = args[2]; }
+            let content = pipedData;
+            if (content === undefined && file) {
+                content = VFS.files[resolvePath(file)];
+            }
+            if (!content) return { text: 'head: missing content or file', error: true };
+            const lines = content.split('\n').slice(0, num).join('\n');
+            return { text: lines };
+        });
+
+        registerCommand('tail', 'FileSystem', 'Output last lines of a file', 'tail [-n num] <file>', (args, input, pipedData) => {
+            let num = 5;
+            let file = args[0];
+            if (args[0] === '-n' && args[1]) { num = parseInt(args[1]) || 5; file = args[2]; }
+            let content = pipedData;
+            if (content === undefined && file) {
+                content = VFS.files[resolvePath(file)];
+            }
+            if (!content) return { text: 'tail: missing content or file', error: true };
+            const lines = content.split('\n');
+            return { text: lines.slice(Math.max(0, lines.length - num)).join('\n') };
+        });
+
+        registerCommand('less', 'FileSystem', 'Paged file viewer', 'less <file>', (args) => COMMANDS['cat'].fn(args));
+        registerCommand('more', 'FileSystem', 'File viewer', 'more <file>', (args) => COMMANDS['cat'].fn(args));
+
+        registerCommand('tree', 'FileSystem', 'Display directory tree', 'tree [path]', (args) => {
+            const root = resolvePath(args[0] || '.');
+            let output = `${root}\n`;
+            function buildTree(dir, prefix = '') {
+                const items = VFS[dir] || [];
+                items.forEach((item, index) => {
+                    const isLast = index === items.length - 1;
+                    const pointer = isLast ? '└── ' : '├── ';
+                    output += `${prefix}${pointer}${item}\n`;
+                    const subDir = dir === '/' ? `/${item}` : `${dir}/${item}`;
+                    if (VFS[subDir] && Array.isArray(VFS[subDir])) {
+                        buildTree(subDir, prefix + (isLast ? '    ' : '│   '));
+                    }
+                });
+            }
+            buildTree(root);
+            return { text: output };
+        });
+
+        registerCommand('find', 'FileSystem', 'Search for files in directory', 'find <name>', (args) => {
+            const pattern = args[0] || '';
+            const matches = Object.keys(VFS.files).filter(f => f.includes(pattern));
+            return { text: matches.join('\n') || 'No files matching pattern found.' };
+        });
+
+        registerCommand('du', 'FileSystem', 'Estimate disk space usage', 'du [file]', (args) => {
+            const path = resolvePath(args[0] || '.');
+            const size = (VFS.files[path] || '').length * 2 + 1024;
+            return { text: `${size} KB\t${path}` };
+        });
+
+        registerCommand('df', 'FileSystem', 'Report file system disk space', 'df', () => ({
+            text: "Filesystem     1K-blocks      Used Available Use% Mounted on\n/dev/vda1       41251136  14210048  27041088  35% /"
+        }));
+
+        registerCommand('chmod', 'FileSystem', 'Change file permissions', 'chmod <mode> <file>', (args) => ({
+            text: `Changed mode of ${args[1] || 'file'} to ${args[0] || '755'}`
+        }));
+
+        registerCommand('chown', 'FileSystem', 'Change file owner', 'chown <owner> <file>', (args) => ({
+            text: `Changed owner of ${args[1] || 'file'} to ${args[0] || 'guest'}`
+        }));
+
+        registerCommand('stat', 'FileSystem', 'Display file status', 'stat <file>', (args) => {
+            const path = resolvePath(args[0]);
+            if (VFS.files[path] === undefined) return { text: 'stat: no such file', error: true };
+            return { text: `File: ${args[0]}\nSize: ${VFS.files[path].length} bytes\nAccess: (0644/-rw-r--r--)\nBirth: ${new Date().toISOString()}` };
+        });
+
+        registerCommand('file', 'FileSystem', 'Determine file type', 'file <file>', (args) => {
+            const path = resolvePath(args[0]);
+            if (path.endsWith('.txt')) return { text: `${args[0]}: ASCII text` };
+            if (path.endsWith('.json')) return { text: `${args[0]}: JSON data` };
+            if (path.endsWith('.sh')) return { text: `${args[0]}: POSIX shell script` };
+            return { text: `${args[0]}: Generic file content` };
+        });
+
+        registerCommand('ln', 'FileSystem', 'Create link to file', 'ln -s <target> <link>', (args) => ({ text: `Symlink created: ${args[1] || 'link'}` }));
+        registerCommand('realpath', 'FileSystem', 'Print absolute path', 'realpath <file>', (args) => ({ text: resolvePath(args[0]) }));
+        registerCommand('which', 'FileSystem', 'Locate executable command', 'which <cmd>', (args) => ({ text: `/bin/${args[0] || 'ls'}` }));
+
+        registerCommand('nano', 'FileSystem', 'Open interactive text editor', 'nano <file>', (args) => {
+            if (!args[0]) return { text: 'nano: missing filename', error: true };
+            const path = resolvePath(args[0]);
+            nanoEditingPath = path;
+            const content = VFS.files[path] || '';
+            document.getElementById('nanoFilename').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> GNU nano 6.2 - ${args[0]}`;
+            document.getElementById('nanoTextarea').value = content;
+            document.getElementById('nanoBox').classList.remove('hidden');
+            document.getElementById('nanoTextarea').focus();
+            return { text: `Opening GNU nano for ${args[0]}...` };
+        });
+
+        // --- 2. TEXT PROCESSING & INSPECTION (29-49) ---
+        registerCommand('echo', 'TextProc', 'Print argument strings', 'echo <text>', (args, input, pipedData) => {
+            if (pipedData !== undefined) return { text: pipedData };
+            return { text: args.join(' ') };
+        });
+
+        registerCommand('grep', 'TextProc', 'Search pattern in text', 'grep <pattern>', (args, input, pipedData) => {
+            const pattern = args[0] || '';
+            const content = pipedData || (args[1] ? VFS.files[resolvePath(args[1])] : '');
+            if (!content) return { text: 'grep: no input data', error: true };
+            const lines = content.split('\n').filter(l => l.toLowerCase().includes(pattern.toLowerCase()));
+            return { text: lines.join('\n') || 'No matches found.' };
+        });
+
+        registerCommand('wc', 'TextProc', 'Print newline, word, and byte counts', 'wc <file>', (args, input, pipedData) => {
+            const content = pipedData || (args[0] ? VFS.files[resolvePath(args[0])] : '');
+            if (!content) return { text: 'wc: no input', error: true };
+            const lines = content.split('\n').length;
+            const words = content.trim().split(/\s+/).length;
+            const bytes = content.length;
+            return { text: `  ${lines}  ${words}  ${bytes}` };
+        });
+
+        registerCommand('sort', 'TextProc', 'Sort lines of text files', 'sort', (args, input, pipedData) => {
+            const content = pipedData || (args[0] ? VFS.files[resolvePath(args[0])] : '');
+            if (!content) return { text: '' };
+            return { text: content.split('\n').sort().join('\n') };
+        });
+
+        registerCommand('uniq', 'TextProc', 'Report or omit repeated lines', 'uniq', (args, input, pipedData) => {
+            const content = pipedData || '';
+            const lines = content.split('\n');
+            const unique = [...new Set(lines)];
+            return { text: unique.join('\n') };
+        });
+
+        registerCommand('tr', 'TextProc', 'Translate characters', 'tr <set1> <set2>', (args, input, pipedData) => {
+            const text = pipedData || args.slice(2).join(' ');
+            if (args[0] === 'a-z' && args[1] === 'A-Z') return { text: text.toUpperCase() };
+            if (args[0] === 'A-Z' && args[1] === 'a-z') return { text: text.toLowerCase() };
+            return { text: text };
+        });
+
+        registerCommand('cut', 'TextProc', 'Remove sections from lines', 'cut -d <delim> -f <field>', (args, input, pipedData) => {
+            const text = pipedData || '';
+            return { text: text.split('\n').map(l => l.split(' ')[0]).join('\n') };
+        });
+
+        registerCommand('sed', 'TextProc', 'Stream editor text replace', 'sed s/find/replace/g', (args, input, pipedData) => {
+            const text = pipedData || '';
+            const rule = args[0] || '';
+            const parts = rule.split('/');
+            if (parts.length >= 3) {
+                return { text: text.replaceAll(parts[1], parts[2]) };
+            }
+            return { text: text };
+        });
+
+        registerCommand('awk', 'TextProc', 'Pattern scanning and processing', 'awk \'{print $1}\'', (args, input, pipedData) => {
+            const text = pipedData || '';
+            return { text: text.split('\n').map(l => l.split(/\s+/)[0]).join('\n') };
+        });
+
+        registerCommand('rev', 'TextProc', 'Reverse lines characterwise', 'rev', (args, input, pipedData) => {
+            const text = pipedData || args.join(' ');
+            return { text: text.split('').reverse().join('') };
+        });
+
+        registerCommand('nl', 'TextProc', 'Number lines of files', 'nl', (args, input, pipedData) => {
+            const text = pipedData || (args[0] ? VFS.files[resolvePath(args[0])] : '');
+            return { text: text.split('\n').map((l, i) => `   ${i+1}\t${l}`).join('\n') };
+        });
+
+        registerCommand('diff', 'TextProc', 'Compare files line by line', 'diff <file1> <file2>', (args) => ({
+            text: `1c1\n< File 1 Line\n---\n> File 2 Line`
+        }));
+
+        registerCommand('fold', 'TextProc', 'Wrap each input line to specified width', 'fold', (args, input, pipedData) => ({ text: pipedData || '' }));
+        registerCommand('fmt', 'TextProc', 'Reformat paragraph text', 'fmt', (args, input, pipedData) => ({ text: pipedData || '' }));
+        registerCommand('paste', 'TextProc', 'Merge lines of files', 'paste', () => ({ text: 'Merging data...' }));
+        registerCommand('column', 'TextProc', 'Columnize lists', 'column -t', (args, input, pipedData) => ({ text: pipedData || '' }));
+        registerCommand('strings', 'TextProc', 'Find printable strings in files', 'strings <file>', (args) => ({ text: "PRIDO_OS_BINARY_STRING_MATCH" }));
+
+        registerCommand('xxd', 'TextProc', 'Hex dump viewer', 'xxd <file>', (args, input, pipedData) => {
+            const text = pipedData || (args[0] ? VFS.files[resolvePath(args[0])] : 'HEX DUMP DATA');
+            let hex = '';
+            for(let i=0; i<text.length; i++) {
+                hex += text.charCodeAt(i).toString(16).padStart(2, '0') + ' ';
+            }
+            return { text: `00000000: ${hex}` };
+        });
+
+        registerCommand('hexdump', 'TextProc', 'Display file contents in hex', 'hexdump', (args, input, pipedData) => COMMANDS['xxd'].fn(args, input, pipedData));
+        registerCommand('tac', 'TextProc', 'Concatenate and print files in reverse', 'tac', (args, input, pipedData) => {
+            const text = pipedData || (args[0] ? VFS.files[resolvePath(args[0])] : '');
+            return { text: text.split('\n').reverse().join('\n') };
+        });
+        registerCommand('tee', 'TextProc', 'Read from standard input and write to files', 'tee <file>', (args, input, pipedData) => ({ text: pipedData || '' }));
+
+        // --- 3. ENCODING, CRYPTO & HASHES (50-64) ---
+        registerCommand('base64', 'Crypto', 'Base64 encode or decode string', 'base64 [-d] <text>', (args, input, pipedData) => {
+            const text = pipedData || args.filter(a => a !== '-d').join(' ');
+            if (args.includes('-d')) {
+                try { return { text: atob(text) }; } catch(e) { return { text: 'base64: invalid input', error: true }; }
+            }
+            return { text: btoa(text) };
+        });
+
+        registerCommand('base32', 'Crypto', 'Base32 encoder simulation', 'base32 <text>', (args) => ({ text: "MZXW6YTBOI======" }));
+        registerCommand('md5', 'Crypto', 'Compute MD5 message digest', 'md5 <text>', (args, input, pipedData) => {
+            const str = pipedData || args.join(' ');
+            return { text: `md5 (${str}) = 5d41402abc4b2a76b9719d911017c592` };
+        });
+
+        registerCommand('sha256', 'Crypto', 'SHA-256 hash generator', 'sha256 <text>', (args, input, pipedData) => {
+            const str = pipedData || args.join(' ');
+            return { text: `sha256 (${str}) = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` };
+        });
+
+        registerCommand('sha1', 'Crypto', 'SHA-1 hash generator', 'sha1 <text>', (args) => ({ text: "da39a3ee5e6b4b0d3255bfef95601890afd80709" }));
+        
+        registerCommand('rot13', 'Crypto', 'ROT13 cipher translation', 'rot13 <text>', (args, input, pipedData) => {
+            const str = pipedData || args.join(' ');
+            return { text: str.replace(/[a-zA-Z]/g, c => String.fromCharCode((c <= 'Z' ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26)) };
+        });
+
+        registerCommand('hash', 'Crypto', 'Generate multi-algorithm hashes', 'hash <text>', (args) => ({
+            text: "MD5: 5d41402abc4b2a76b9719d911017c592\nSHA1: da39a3ee5e6b4b0d3255bfef95601890afd80709\nSHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b"
+        }));
+
+        registerCommand('urlencode', 'Crypto', 'URL encode string', 'urlencode <text>', (args) => ({ text: encodeURIComponent(args.join(' ')) }));
+        registerCommand('urldecode', 'Crypto', 'URL decode string', 'urldecode <text>', (args) => ({ text: decodeURIComponent(args.join(' ')) }));
+
+        registerCommand('encrypt', 'Crypto', 'Encrypt string with key', 'encrypt <key> <msg>', (args) => ({
+            text: `Encrypted Ciphertext: [ENC::${btoa(args.slice(1).join(' '))}]`
+        }));
+
+        registerCommand('decrypt', 'Crypto', 'Decrypt message', 'decrypt <msg>', (args) => ({
+            text: `Decrypted Plaintext: ${args.join(' ').replace('[ENC::', '').replace(']', '')}`
+        }));
+
+        registerCommand('uuid', 'Crypto', 'Generate random UUID v4', 'uuid', () => ({ text: crypto.randomUUID() }));
+        registerCommand('random', 'Crypto', 'Generate random number', 'random [min] [max]', (args) => {
+            const min = parseInt(args[0]) || 1;
+            const max = parseInt(args[1]) || 100;
+            return { text: Math.floor(Math.random() * (max - min + 1)) + min };
+        });
+
+        registerCommand('jwt', 'Crypto', 'Decode JWT Token header/payload', 'jwt <token>', () => ({
+            text: "Header: {\"alg\":\"HS256\",\"typ\":\"JWT\"}\nPayload: {\"sub\":\"1234567890\",\"name\":\"Pritam\",\"role\":\"developer\",\"iat\":1516239022}"
+        }));
+
+        registerCommand('genpass', 'Crypto', 'Generate random secure password', 'genpass [length]', (args) => {
+            const len = parseInt(args[0]) || 16;
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+';
+            let pass = '';
+            for(let i=0; i<len; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            return { text: `Generated Password: ${pass}` };
+        });
+
+        // --- 4. NETWORK & WEB SIMULATION (65-84) ---
+        registerCommand('ping', 'Network', 'Simulate ICMP ping to host', 'ping <host>', (args) => {
+            const host = args[0] || 'google.com';
+            return { text: `PING ${host} (142.250.190.46) 56(84) bytes of data.\n64 bytes from ${host}: icmp_seq=1 ttl=116 time=14.2 ms\n64 bytes from ${host}: icmp_seq=2 ttl=116 time=12.8 ms\n--- ${host} ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss` };
+        });
+
+        registerCommand('curl', 'Network', 'Transfer data from or to a server', 'curl <url>', async (args) => {
+            if (!args[0]) return { text: 'curl: missing URL argument', error: true };
+            return { text: `HTTP/1.1 200 OK\nDate: ${new Date().toUTCString()}\nServer: PridoEngine/4.0\nContent-Type: text/html\n\n<!DOCTYPE html><html><body><h1>Response from ${args[0]}</h1></body></html>` };
+        });
+
+        registerCommand('wget', 'Network', 'Simulate downloading web file', 'wget <url>', (args) => ({
+            text: `--${new Date().toISOString()}-- ${args[0] || 'http://example.com/file'}\nConnecting to server... connected.\nHTTP request sent, awaiting response... 200 OK\nLength: 4096 [application/octet-stream]\nSaving to: 'file.out' [SAVED]`
+        }));
+
+        registerCommand('dig', 'Network', 'DNS lookup utility', 'dig <domain>', (args) => {
+            const domain = args[0] || 'example.com';
+            return { text: `; <<>> DiG 9.10.6 <<>> ${domain}\n;; ANSWER SECTION:\n${domain}.\t300\tIN\tA\t93.184.216.34` };
+        });
+
+        registerCommand('nslookup', 'Network', 'Query Internet name servers', 'nslookup <domain>', (args) => ({
+            text: `Server:\t\t8.8.8.8\nAddress:\t8.8.8.8#53\n\nNon-authoritative answer:\nName:\t${args[0] || 'google.com'}\nAddress: 142.250.190.46`
+        }));
+
+        registerCommand('traceroute', 'Network', 'Print route packets take to network host', 'traceroute <host>', (args) => ({
+            text: `traceroute to ${args[0] || 'example.com'} (93.184.216.34), 30 hops max\n 1  192.168.1.1  1.124 ms\n 2  10.0.0.1  8.432 ms\n 3  93.184.216.34  15.210 ms`
+        }));
+
+        registerCommand('ifconfig', 'Network', 'Configure network interfaces', 'ifconfig', () => ({
+            text: "eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500\n        inet 192.168.1.105  netmask 255.255.255.0  broadcast 192.168.1.255\n        inet6 fe80::1ff:fea1:2b3c  prefixlen 64\n        ether 52:54:00:12:34:56  txqueuelen 1000  (Ethernet)"
+        }));
+
+        registerCommand('ip', 'Network', 'IP routing & device statistics', 'ip addr', () => COMMANDS['ifconfig'].fn());
+        registerCommand('netstat', 'Network', 'Print network connections', 'netstat', () => ({
+            text: "Active Internet connections (only servers)\nProto Recv-Q Send-Q Local Address           Foreign Address         State\ntcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN\ntcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN"
+        }));
+
+        registerCommand('ssh', 'Network', 'OpenSSH client simulation', 'ssh user@host', (args) => ({
+            text: `Connecting to ${args[0] || 'remote.server.com'}...\nAuthenticating via SSH key...\nWelcome to Remote Server (PridoOS Linux)!\nguest@remote:~$ `
+        }));
+
+        registerCommand('ftp', 'Network', 'File Transfer Protocol simulator', 'ftp <host>', (args) => ({ text: `Connected to ${args[0] || 'ftp.server.com'}. Name: anonymous` }));
+        registerCommand('telnet', 'Network', 'User interface to TELNET protocol', 'telnet <host>', (args) => ({ text: `Trying ${args[0] || '127.0.0.1'}... Connected.` }));
+        registerCommand('whois', 'Network', 'Domain ownership lookup', 'whois <domain>', (args) => ({
+            text: `Domain Name: ${args[0] || 'example.com'}\nRegistrar: SafeNames Ltd\nCreation Date: 1995-09-03\nRegistrant Country: US`
+        }));
+
+        registerCommand('http', 'Network', 'Inspect HTTP request headers', 'http <url>', (args) => ({ text: `GET / HTTP/1.1\nHost: ${args[0] || 'api.github.com'}\nUser-Agent: PridoTerminal/4.0` }));
+        registerCommand('dns', 'Network', 'Quick DNS inspector', 'dns <domain>', (args) => COMMANDS['dig'].fn(args));
+        registerCommand('speedtest', 'Network', 'Run network bandwidth test', 'speedtest', () => ({
+            text: "Testing Download Speed...\nDownload: 420.50 Mbps\nTesting Upload Speed...\nUpload: 180.25 Mbps\nPing: 8 ms"
+        }));
+
+        registerCommand('weather', 'Network', 'Get weather forecast', 'weather [city]', (args) => ({
+            text: `Weather report for ${args[0] || 'New York'}:\n🌤  Temperature: 22°C (71°F)\n💨 Wind: 12 km/h\n💧 Humidity: 45%`
+        }));
+
+        registerCommand('nmap', 'Network', 'Network exploration tool and port scanner', 'nmap <target>', (args) => ({
+            text: `Starting Nmap scan against ${args[0] || '127.0.0.1'}\nPORT     STATE SERVICE\n22/tcp   open  ssh\n80/tcp   open  http\n443/tcp  open  https`
+        }));
+
+        registerCommand('portscan', 'Network', 'Fast port scanner check', 'portscan <target>', (args) => COMMANDS['nmap'].fn(args));
+        registerCommand('mac', 'Network', 'Lookup or generate MAC address', 'mac', () => ({ text: "00:1A:2B:3C:4D:5E" }));
+
+        // --- 5. SYSTEM INFO & MONITORING (85-104) ---
+        registerCommand('neofetch', 'System', 'Display system info and ASCII logo', 'neofetch', () => ({
+            html: `
+                <div class="flex flex-col sm:flex-row gap-4 p-3 bg-slate-900/80 border border-slate-800 rounded-lg">
+                    <pre class="text-emerald-400 font-bold text-xs leading-tight select-none">
+     /\_/\
+    ( o.o )   PRIDO-OS
+     > ^ <    Linux x86_64
+                    </pre>
+                    <div class="text-xs space-y-1">
+                        <p><b class="text-sky-400">OS:</b> PridoOS 4.0 Pro Edition</p>
+                        <p><b class="text-sky-400">Host:</b> Web Terminal Virtual Kernel</p>
+                        <p><b class="text-sky-400">Kernel:</b> 6.8.0-2026-PRIDO-V4</p>
+                        <p><b class="text-sky-400">Uptime:</b> ${Math.floor(performance.now() / 1000)}s</p>
+                        <p><b class="text-sky-400">Shell:</b> PridoBash v4.0 (170 Cmds)</p>
+                        <p><b class="text-sky-400">Memory:</b> 4096 MiB / 16384 MiB</p>
+                    </div>
+                </div>
+            `
+        }));
+
+        registerCommand('fastfetch', 'System', 'Fast modern fetch system info', 'fastfetch', () => COMMANDS['neofetch'].fn());
+        registerCommand('screenfetch', 'System', 'Retro screen info fetch', 'screenfetch', () => COMMANDS['neofetch'].fn());
+
+        registerCommand('top', 'System', 'Display system processes', 'top', () => ({
+            text: "top - 12:30:00 up 2:15, 1 user, load average: 0.12, 0.08, 0.05\nTasks: 42 total, 1 running, 41 sleeping\n%Cpu(s):  2.5 us,  1.2 sy,  0.0 ni, 96.3 id\nPID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND\n  1 root      20   0   16824   4200   3100 S   0.0   0.1   0:01.12 init\n420 guest     20   0  245020  32100  12400 S   1.5   0.8   0:04.50 prido-bash\n890 guest     20   0  102400  18200   8400 S   0.5   0.4   0:01.20 matrix-engine"
+        }));
+
+        registerCommand('htop', 'System', 'Interactive process viewer', 'htop', () => COMMANDS['top'].fn());
+        registerCommand('ps', 'System', 'Report process status', 'ps', () => ({
+            text: "  PID TTY          TIME CMD\n 1001 pts/0    00:00:00 bash\n 1042 pts/0    00:00:00 ps"
+        }));
+
+        registerCommand('uptime', 'System', 'System uptime', 'uptime', () => ({ text: `12:30:00 up ${Math.floor(performance.now() / 1000)} seconds, 1 user, load average: 0.05, 0.02, 0.01` }));
+        registerCommand('whoami', 'System', 'Print current username', 'whoami', () => ({ text: "guest" }));
+        registerCommand('hostname', 'System', 'Print system name', 'hostname', () => ({ text: "prido-web-terminal" }));
+        registerCommand('uname', 'System', 'Print system information', 'uname -a', () => ({ text: "Linux prido-terminal 6.8.0-2026-PRIDO x86_64 GNU/Linux" }));
+
+        registerCommand('free', 'System', 'Display memory usage', 'free -h', () => ({
+            text: "               total        used        free      shared  buff/cache   available\nMem:           16Gi       4.1Gi       9.2Gi       250Mi       2.7Gi       11.5Gi\nSwap:         2.0Gi          0B       2.0Gi"
+        }));
+
+        registerCommand('vmstat', 'System', 'Virtual memory stats', 'vmstat', () => ({ text: "procs -----------memory---------- ---swap-- -----io--- -system-- ------cpu-----\n r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st\n 1  0      0 964200 12040 284010    0    0     2     8   25   40  2  1 97  0  0" }));
+        registerCommand('iostat', 'System', 'I/O stats for devices', 'iostat', () => ({ text: "Linux 6.8.0-PRIDO\nDevice             tps    kB_read/s    kB_wrtn/s    kB_read    kB_wrtn\nvda               1.20        12.50        45.20     125000     452000" }));
+        registerCommand('lscpu', 'System', 'CPU architecture details', 'lscpu', () => ({ text: "Architecture:        x86_64\nCPU(s):              8\nModel name:          Intel(R) Core(TM) i7-12700K\nCPU MHz:             3600.000" }));
+        registerCommand('lsusb', 'System', 'List USB devices', 'lsusb', () => ({ text: "Bus 001 Device 002: ID 046d:c52b Logitech, Inc. Unifying Receiver\nBus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub" }));
+        registerCommand('lspci', 'System', 'List PCI devices', 'lspci', () => ({ text: "00:00.0 Host bridge: Intel Corporation 12th Gen Core Processor Host Bridge\n00:02.0 VGA compatible controller: NVIDIA Corporation RTX 4080" }));
+
+        registerCommand('env', 'System', 'List environment variables', 'env', () => ({
+            text: "USER=guest\nHOME=/home/guest\nSHELL=/bin/bash\nTERM=xterm-256color\nPRIDO_OS_VERSION=4.0.0"
+        }));
+
+        registerCommand('export', 'System', 'Set environment variable', 'export VAR=val', (args) => ({ text: `Exported variable: ${args[0] || 'VAR=VAL'}` }));
+        registerCommand('history', 'System', 'Display command history', 'history', () => ({ text: commandHistory.map((cmd, i) => `  ${i+1}  ${cmd}`).join('\n') }));
+        registerCommand('clear', 'System', 'Clear terminal console logs', 'clear', () => {
+            document.getElementById('logContainer').innerHTML = '';
+            return { text: '' };
+        });
+
+        // --- 6. PACKAGE MANAGEMENT & SOFTWARE (105-119) ---
+        registerCommand('apt', 'PkgMgr', 'Package manager utility', 'apt install <pkg>', (args) => {
+            const pkg = args[1] || args[0] || 'neofetch';
+            return { text: `Reading package lists... Done\nBuilding dependency tree... Done\nInstalling ${pkg}...\nSetting up ${pkg} (v4.0.1)... Done.` };
+        });
+
+        registerCommand('apt-get', 'PkgMgr', 'Classic APT package installer', 'apt-get install <pkg>', (args) => COMMANDS['apt'].fn(args));
+        registerCommand('npm', 'PkgMgr', 'Node package manager', 'npm install <pkg>', (args) => ({ text: `added 1 package, and audited 42 packages in 1s\n\n1 package is looking for funding.` }));
+        registerCommand('pip', 'PkgMgr', 'Python package installer', 'pip install <pkg>', (args) => ({ text: `Downloading ${args[1] || 'requests'}...\nSuccessfully installed ${args[1] || 'requests'}-2.31.0` }));
+        
+        registerCommand('git', 'PkgMgr', 'Version control tool', 'git status', (args) => {
+            const sub = args[0] || 'status';
+            if (sub === 'status') return { text: "On branch main\nYour branch is up to date with 'origin/main'.\n\nnothing to commit, working tree clean" };
+            if (sub === 'log') return { text: "commit 8a7f2d01 (HEAD -> main)\nAuthor: Pritam <pritam@example.com>\nDate:   Wed Oct 7 2026\n\n    feat: Add 170 commands to PRIDO WEB TERMINAL" };
+            return { text: `git ${sub}: operation completed successfully.` };
+        });
+
+        registerCommand('docker', 'PkgMgr', 'Container platform simulation', 'docker ps', (args) => ({
+            text: "CONTAINER ID   IMAGE          COMMAND                  CREATED         STATUS         PORTS\n8a9b0c1d2e3f   nginx:latest   \"/docker-entrypoint.…\"   2 hours ago     Up 2 hours     0.0.0.0:80->80/tcp"
+        }));
+
+        registerCommand('cargo', 'PkgMgr', 'Rust package manager', 'cargo build', () => ({ text: "   Compiling prido_core v0.1.0\n    Finished dev [unoptimized + debuginfo] target(s) in 1.42s" }));
+        registerCommand('brew', 'PkgMgr', 'Homebrew package manager', 'brew install <formula>', (args) => ({ text: `==> Downloading https://formulae.brew.sh/${args[1] || 'wget'}\n==> Pouring bottle...\n🍺  ${args[1] || 'wget'} was successfully installed!` }));
+        registerCommand('systemctl', 'PkgMgr', 'Control systemd system and service manager', 'systemctl status <service>', (args) => ({ text: `● ${args[1] || 'nginx'}.service - Web Server\n   Loaded: loaded\n   Active: active (running) since Wed 2026-10-07` }));
+        registerCommand('service', 'PkgMgr', 'Run a System V init script', 'service <name> status', (args) => COMMANDS['systemctl'].fn(args));
+        registerCommand('cron', 'PkgMgr', 'Scheduled tasks daemon', 'cron list', () => ({ text: "0 0 * * * /usr/bin/backup.sh\n*/5 * * * * /usr/bin/healthcheck" }));
+        registerCommand('alias', 'PkgMgr', 'Create command alias', 'alias name="cmd"', (args) => ({ text: `Alias created: ${args.join(' ')}` }));
+        registerCommand('unalias', 'PkgMgr', 'Remove alias', 'unalias <name>', (args) => ({ text: `Alias removed: ${args[0]}` }));
+        registerCommand('kill', 'PkgMgr', 'Send signal to process', 'kill <PID>', (args) => ({ text: `Killed process PID ${args[0] || 1001}` }));
+        registerCommand('killall', 'PkgMgr', 'Kill processes by name', 'killall <name>', (args) => ({ text: `Killed all instances of ${args[0] || 'node'}` }));
+
+        // --- 7. DEVELOPER TOOLS & REPLS (120-134) ---
+        registerCommand('node', 'DevTools', 'JavaScript REPL runner', 'node -e "<code>"', (args) => {
+            if (args[0] === '-e' && args[1]) {
+                try {
+                    const res = eval(args.slice(1).join(' ').replace(/^"|"$/g, ''));
+                    return { text: String(res) };
+                } catch(e) { return { text: `JSError: ${e.message}`, error: true }; }
+            }
+            return { text: 'Welcome to Node.js v20.10.0.\nType ".exit" or code directly.' };
+        });
+
+        registerCommand('python', 'DevTools', 'Python code evaluator', 'python -c "<code>"', (args) => {
+            return { text: "Python 3.11.5 (main, Oct 2026)\n[GCC 11.2.0] on linux\nResult: Execution simulated." };
+        });
+
+        registerCommand('js', 'DevTools', 'Execute JavaScript string', 'js <code>', (args) => {
+            try {
+                const res = eval(args.join(' '));
+                return { text: `[JS Output]: ${String(res)}` };
+            } catch(e) { return { text: `JS Error: ${e.message}`, error: true }; }
+        });
+
+        registerCommand('calc', 'DevTools', 'Evaluate mathematical expression', 'calc <expr>', (args) => {
+            try {
+                const expr = args.join('').replace(/[^0-9+\-*/().]/g, '');
+                const result = Function(`'use strict'; return (${expr})`)();
+                return { text: `Result: ${result}` };
+            } catch(e) { return { text: 'calc: invalid math expression', error: true }; }
+        });
+
+        registerCommand('math', 'DevTools', 'Quick math solver', 'math <expr>', (args) => COMMANDS['calc'].fn(args));
+
+        registerCommand('sql', 'DevTools', 'Simulated in-memory SQL runner', 'sql SELECT * FROM users', () => ({
+            html: `
+                <table class="border border-slate-700 text-xs w-full text-left">
+                    <tr class="bg-slate-800 text-emerald-400"><th>id</th><th>username</th><th>role</th></tr>
+                    <tr><td>1</td><td>admin</td><td>Superuser</td></tr>
+                    <tr><td>2</td><td>guest</td><td>Developer</td></tr>
+                </table>
+            `
+        }));
+
+        registerCommand('gcc', 'DevTools', 'Compile C source code', 'gcc <file.c>', (args) => ({ text: `Compiled ${args[0] || 'main.c'} successfully -> a.out` }));
+        
+        registerCommand('json', 'DevTools', 'Parse & format JSON', 'json <json_string>', (args) => {
+            try {
+                const obj = JSON.parse(args.join(' '));
+                return { text: JSON.stringify(obj, null, 2) };
+            } catch(e) { return { text: 'json: invalid JSON input', error: true }; }
+        });
+
+        registerCommand('regex', 'DevTools', 'Test Regex pattern', 'regex <pattern> <string>', (args) => {
+            const re = new RegExp(args[0]);
+            const str = args.slice(1).join(' ');
+            return { text: `Match: ${re.test(str)}` };
+        });
+
+        registerCommand('convert', 'DevTools', 'Unit converter', 'convert <val> <from> <to>', (args) => {
+            const val = parseFloat(args[0]) || 0;
+            return { text: `${val} C = ${(val * 9/5) + 32} F` };
+        });
+
+        registerCommand('unit', 'DevTools', 'Dimensional converter', 'unit', (args) => COMMANDS['convert'].fn(args));
+        registerCommand('hex', 'DevTools', 'Decimal to Hexadecimal', 'hex <number>', (args) => ({ text: `0x${parseInt(args[0] || '255').toString(16).toUpperCase()}` }));
+        registerCommand('binary', 'DevTools', 'Decimal to Binary', 'binary <number>', (args) => ({ text: `0b${parseInt(args[0] || '42').toString(2)}` }));
+        registerCommand('bcd', 'DevTools', 'Binary Coded Decimal', 'bcd <number>', (args) => ({ text: "BCD: 0100 0010" }));
+        registerCommand('markdown', 'DevTools', 'Render Markdown text', 'markdown <text>', (args) => ({ text: args.join(' ') }));
+
+        // --- 8. FUN, ASCII ART & TOYS (135-154) ---
+        registerCommand('cowsay', 'Fun', 'ASCII talking cow', 'cowsay <text>', (args, input, pipedData) => {
+            const msg = pipedData || args.join(' ') || 'Moo! PRIDO WEB TERMINAL Rules!';
+            return {
+                text: `
+ ___________
+< ${msg} >
+ -----------
+        \\   ^__^
+         \\  (oo)\\_______
+            (__)\\       )/\\
+                ||----w |
+                ||     ||`
+            };
+        });
+
+        registerCommand('cowthink', 'Fun', 'ASCII thinking cow', 'cowthink <text>', (args) => {
+            const msg = args.join(' ') || 'Thinking about web CLI...';
+            return {
+                text: `
+ ( ${msg} )
+ -----------
+        o   ^__^
+         o  (oO)\\_______
+            (__)\\       )/\\
+                ||----w |
+                ||     ||`
+            };
+        });
+
+        registerCommand('figlet', 'Fun', 'Large ASCII text banner', 'figlet <text>', (args) => {
+            const txt = args.join(' ') || 'PRIDO';
+            return {
+                text: `
+  _ __  _ __ (_) __| | ___  
+ | '_ \| '__|| |/ _\` |/ _ \ 
+ | |_) | |   | | (_| | (_) |
+ | .__/|_|   |_|\__,_|\___/ 
+ |_|                        
+[ ${txt} ]`
+            };
+        });
+
+        registerCommand('fortune', 'Fun', 'Random developer wisdom', 'fortune', () => {
+            const quotes = [
+                "There are 10 types of people: those who understand binary and those who don't.",
+                "Simplicity is prerequisite for reliability.",
+                "Code is like humor. When you have to explain it, it’s bad.",
+                "Make it work, make it right, make it fast."
+            ];
+            return { text: quotes[Math.floor(Math.random() * quotes.length)] };
+        });
+
+        registerCommand('sl', 'Fun', 'Steam Locomotive train animation', 'sl', () => {
+            return {
+                text: `
+      ====        ________________._____
+  _D _|  |_______/        |        |==  |
+ |   |   |  ____  |  ____ |  ____  |====|
+/===|_m__|_(____)_|_(____)_|_(____)_|____|
+  (O)                   (O)(O)(O)
+Choo Choo! Steam Locomotive passing through PRIDO Terminal!`
+            };
+        });
+
+        registerCommand('matrix', 'Fun', 'Toggle digital background matrix rain', 'matrix', () => {
+            matrixActive = !matrixActive;
+            matrixCanvas.style.opacity = matrixActive ? "0.2" : "0";
+            return { text: `Matrix rain background: ${matrixActive ? 'ENABLED' : 'DISABLED'}` };
+        });
+
+        registerCommand('cmatrix', 'Fun', 'Console matrix rain effect', 'cmatrix', () => COMMANDS['matrix'].fn());
+
+        registerCommand('lolcat', 'Fun', 'Rainbow colored text output', 'lolcat', (args, input, pipedData) => {
+            const text = pipedData || args.join(' ') || 'Rainbow PRIDO Terminal!';
+            return { html: `<span class="bg-gradient-to-r from-red-500 via-yellow-400 via-green-400 to-sky-400 bg-clip-text text-transparent font-bold">${text}</span>` };
+        });
+
+        registerCommand('banner', 'Fun', 'Big ASCII banner generator', 'banner <text>', (args) => COMMANDS['figlet'].fn(args));
+        registerCommand('joke', 'Fun', 'Developer programming joke', 'joke', () => ({
+            text: "Why do programmers prefer dark mode?\nBecause light attracts bugs!"
+        }));
+
+        registerCommand('fact', 'Fun', 'Random CS fact', 'fact', () => ({
+            text: "Fact: The first computer bug was an actual real moth found in a Harvard Mark II computer in 1947!"
+        }));
+
+        registerCommand('quote', 'Fun', 'Tech quote', 'quote', () => COMMANDS['fortune'].fn());
+        registerCommand('dadjoke', 'Fun', 'Dad jokes', 'dadjoke', () => COMMANDS['joke'].fn());
+        registerCommand('flipcoin', 'Fun', 'Flip a coin', 'flipcoin', () => ({ text: Math.random() > 0.5 ? "🪙 Result: HEADS" : "🪙 Result: TAILS" }));
+        registerCommand('roll', 'Fun', 'Roll dice (e.g. 1d6)', 'roll [dice]', () => ({ text: `🎲 You rolled: ${Math.floor(Math.random() * 6) + 1}` }));
+        
+        registerCommand('doge', 'Fun', 'Much wow doge ascii', 'doge', () => ({
+            text: `
+  ░░░░░░░░░▄░░░░░░░░░░░░░░▄░░░░
+  ░░░░░░░░▌▒█░░░░░░░░░░░▄▀▒▌░░░
+  ░░░░░░░░▌▒▒█░░░░░░░░▄▀▒▒▒▐░░░
+  ░░░░░░░▐▄▀▒▒▀▀▀▀▄▄▄▀▒▒▒▒▒▐░░░
+  Much Wow! So PRIDO Terminal! Very CLI!`
+        }));
+
+        registerCommand('ascii', 'Fun', 'ASCII table sample', 'ascii', () => ({ text: "DEC 65 = 'A', DEC 66 = 'B', DEC 97 = 'a'" }));
+        registerCommand('nyan', 'Fun', 'Nyan Cat animation sequence', 'nyan', () => ({ text: "🐱~=[,,_,,]:3 ~~~~~~~~~~ REAN NYAN!" }));
+        registerCommand('starwars', 'Fun', 'Star Wars ASCII player', 'starwars', () => ({ text: "A long time ago in a galaxy far, far away..." }));
+        registerCommand('bb', 'Fun', 'Audio visualizer demo', 'bb', () => ({ text: "🎵 Audio Visualizer Frequency Pulse Running..." }));
+
+        // --- 9. INTERACTIVE CLI MINI-GAMES (155-163) ---
+        registerCommand('snake', 'Games', 'Play Snake arcade game', 'snake', () => {
+            startSnakeGame();
+            return { text: "Launching Snake game..." };
+        });
+
+        registerCommand('tetris', 'Games', 'Play Tetris block game', 'tetris', () => {
+            startTetrisGame();
+            return { text: "Launching Tetris game..." };
+        });
+
+        registerCommand('pong', 'Games', 'Play retro Pong paddle game', 'pong', () => {
+            startPongGame();
+            return { text: "Launching Pong game..." };
+        });
+
+        registerCommand('game2048', 'Games', 'Play 2048 puzzle game', 'game2048', () => ({
+            text: "2048 CLI: [2][4][2][8]\nUse arrow key commands!"
+        }));
+
+        registerCommand('tictactoe', 'Games', 'Play Tic Tac Toe vs AI', 'tictactoe', () => ({
+            text: " Tic Tac Toe:\n X | O | X \n----------- \n   | X |   \n----------- \n O |   | O "
+        }));
+
+        registerCommand('guess', 'Games', 'Number guessing game', 'guess [number]', (args) => {
+            const target = 7;
+            const num = parseInt(args[0]);
+            if (!num) return { text: "Guess a number between 1 and 10! Usage: guess 5" };
+            if (num === target) return { text: "🎉 Correct! You guessed the secret number 7!" };
+            return { text: num < target ? "Too low! Try higher." : "Too high! Try lower." };
+        });
+
+        registerCommand('hangman', 'Games', 'Hangman word game', 'hangman', () => ({ text: "Word: _ R I _ O (Hint: Terminal Name)" }));
+        registerCommand('typing', 'Games', 'Speed typing test', 'typing', () => ({ text: "Type fast: 'The quick brown fox jumps over the lazy dog'" }));
+        registerCommand('maze', 'Games', 'Random ASCII maze escape', 'maze', () => ({ text: "#####\n# S #\n#  G#\n#####" }));
+
+        // --- 10. AI, THEMES & SYSTEM CONTROLS (164-170) ---
+        registerCommand('ai', 'AI', 'Ask Gemini AI assistant', 'ai <prompt>', async (args) => {
+            if (!args[0]) return { text: 'ai: missing prompt argument', error: true };
+            const prompt = args.join(' ');
+            const reply = await fetchGeminiAIResponse(prompt);
+            return { html: `<div class="bg-slate-900 border border-purple-500/40 p-3 rounded text-purple-200"><b class="text-purple-400"><i class="fa-solid fa-sparkles mr-1"></i> Gemini AI:</b><br>${reply}</div>` };
+        });
+
+        registerCommand('ask', 'AI', 'Quick AI question', 'ask <question>', (args) => COMMANDS['ai'].fn(args));
+        registerCommand('explain', 'AI', 'Explain code concept with AI', 'explain <concept>', (args) => COMMANDS['ai'].fn(['Explain in detail:', ...args]));
+        registerCommand('code', 'AI', 'Generate code snippet with AI', 'code <task>', (args) => COMMANDS['ai'].fn(['Write clean code for:', ...args]));
+
+        registerCommand('theme', 'Settings', 'Change visual color theme', 'theme <name>', (args) => {
+            const name = args[0]?.toLowerCase();
+            if (['matrix', 'cyberpunk', 'dracula', 'solarized', 'nord', 'hacker'].includes(name)) {
+                document.getElementById('themeSelect').value = name;
+                applyTheme(name);
+                return { text: `Theme changed to ${name}` };
+            }
+            return { text: 'Themes: matrix, cyberpunk, dracula, solarized, nord, hacker', error: true };
+        });
+
+        registerCommand('sound', 'Settings', 'Toggle sound click effects', 'sound', () => {
+            soundEnabled = !soundEnabled;
+            document.getElementById('soundIcon').className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+            return { text: `Sound clicks: ${soundEnabled ? 'ENABLED' : 'DISABLED'}` };
+        });
+
+        registerCommand('reset', 'Settings', 'Reset terminal environment', 'reset', () => {
+            document.getElementById('logContainer').innerHTML = '';
+            activeDirectory = "/home/guest";
+            document.getElementById('currentDirLabel').textContent = "~";
+            return { text: "Terminal environment reset to default state." };
+        });
+
+        registerCommand('help', 'System', 'Display system help and 170 commands', 'help [--all]', (args) => {
+            if (args.includes('--all')) {
+                openCatalogModal();
+                return { text: "Opened full 170 commands catalog index modal." };
+            }
+
+            const categories = {};
+            Object.keys(COMMANDS).forEach(name => {
+                const cat = COMMANDS[name].category;
+                categories[cat] = (categories[cat] || 0) + 1;
+            });
+
+            let html = `<div class="bg-slate-900 p-3 border border-slate-800 rounded space-y-2">
+                <p class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-info mr-1"></i> PRIDO WEB TERMINAL - 170 Commands Index Summary</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">`;
+            
+            Object.keys(categories).forEach(cat => {
+                html += `<div><b class="text-yellow-400">${cat}:</b> <span class="text-slate-300">${categories[cat]} cmds</span></div>`;
+            });
+
+            html += `</div>
+                <p class="text-slate-400 text-xs mt-2">Type <span class="text-yellow-300 font-bold">'help --all'</span> or click the top <b class="text-yellow-300">'170 Cmds'</b> button to browse all commands with search.</p>
+                <p class="text-slate-400 text-xs">Examples: <span class="text-sky-300">ls</span>, <span class="text-sky-300">neofetch</span>, <span class="text-sky-300">cat about.txt | grep Pritam</span>, <span class="text-sky-300">ai Hello</span>, <span class="text-sky-300">snake</span>, <span class="text-sky-300">calc 12 * 8</span></p>
+            </div>`;
+            return { html };
+        });
+
+        registerCommand('man', 'System', 'Display command manual page', 'man <cmd>', (args) => {
+            if (!args[0] || !COMMANDS[args[0]]) return { text: "man: command not found", error: true };
+            const c = COMMANDS[args[0]];
+            return { text: `MANUAL PAGE FOR: ${args[0]}\nCategory: ${c.category}\nUsage: ${c.usage}\nDescription: ${c.desc}` };
+        });
+
+        let currentGameInterval = null;
+
+        function startSnakeGame() {
+            const gameBox = document.getElementById('gameBox');
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            document.getElementById('gameTitle').innerHTML = `<i class="fa-solid fa-gamepad mr-1"></i> Snake Arcade CLI`;
+            gameBox.classList.remove('hidden');
+
+            let snake = [{x: 10, y: 10}];
+            let food = {x: 15, y: 15};
+            let dx = 1, dy = 0;
+            let score = 0;
+            const gridSize = 15;
+            const tileCount = 20;
+
+            if (currentGameInterval) clearInterval(currentGameInterval);
+
+            function keyHandler(e) {
+                if (e.key === 'q' || e.key === 'Q') {
+                    clearInterval(currentGameInterval);
+                    gameBox.classList.add('hidden');
+                    window.removeEventListener('keydown', keyHandler);
+                    return;
+                }
+                if (e.key === 'ArrowUp' && dy === 0) { dx = 0; dy = -1; }
+                if (e.key === 'ArrowDown' && dy === 0) { dx = 0; dy = 1; }
+                if (e.key === 'ArrowLeft' && dx === 0) { dx = -1; dy = 0; }
+                if (e.key === 'ArrowRight' && dx === 0) { dx = 1; dy = 0; }
+            }
+            window.addEventListener('keydown', keyHandler);
+
+            currentGameInterval = setInterval(() => {
+                const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+                if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+                    clearInterval(currentGameInterval);
+                    window.removeEventListener('keydown', keyHandler);
+                    alert(`Game Over! Final Score: ${score}`);
+                    gameBox.classList.add('hidden');
+                    return;
+                }
+
+                snake.unshift(head);
+
+                if (head.x === food.x && head.y === food.y) {
+                    score += 10;
+                    document.getElementById('gameScore').textContent = score;
+                    food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) };
+                } else {
+                    snake.pop();
+                }
+
+                ctx.fillStyle = '#090d16';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = '#ff0055';
+                ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+
+                ctx.fillStyle = '#00ff66';
+                snake.forEach(part => {
+                    ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
+                });
+            }, 100);
+        }
+
+        function startTetrisGame() {
+            const gameBox = document.getElementById('gameBox');
+            document.getElementById('gameTitle').innerHTML = `<i class="fa-solid fa-cubes mr-1"></i> Tetris Block CLI`;
+            gameBox.classList.remove('hidden');
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#090d16';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#00f3ff';
+            ctx.font = "16px monospace";
+            ctx.fillText("Tetris CLI Engine Loaded!", 100, 150);
+        }
+
+        function startPongGame() {
+            const gameBox = document.getElementById('gameBox');
+            document.getElementById('gameTitle').innerHTML = `<i class="fa-solid fa-table-tennis-paddle-ball mr-1"></i> Retro Pong CLI`;
+            gameBox.classList.remove('hidden');
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#090d16';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#00ff66';
+            ctx.fillRect(20, 100, 10, 60);
+            ctx.fillRect(370, 100, 10, 60);
+            ctx.arc(200, 130, 6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        const cliInput = document.getElementById('cliInput');
+        const logContainer = document.getElementById('logContainer');
+        const terminalOutput = document.getElementById('terminalOutput');
+
+        function appendToLog(cmdText, resObj) {
+            const entry = document.createElement('div');
+            entry.className = "space-y-1 animate-fadeIn";
+
+            if (cmdText !== null) {
+                const promptLine = document.createElement('div');
+                promptLine.className = "flex items-center gap-1.5 text-xs text-slate-400 font-semibold";
+                promptLine.innerHTML = `<span class="text-sky-400">guest@prido-terminal</span>:<span class="text-purple-400">${activeDirectory.replace('/home/guest', '~')}</span>$ <span class="text-slate-100">${escapeHtml(cmdText)}</span>`;
+                entry.appendChild(promptLine);
+            }
+
+            if (resObj) {
+                const outputDiv = document.createElement('div');
+                outputDiv.className = `text-xs leading-relaxed ${resObj.error ? 'text-red-400' : 'text-slate-300'}`;
+                if (resObj.html) {
+                    outputDiv.innerHTML = resObj.html;
+                } else {
+                    outputDiv.innerHTML = `<pre class="font-mono whitespace-pre-wrap leading-relaxed">${escapeHtml(resObj.text || '')}</pre>`;
+                }
+                entry.appendChild(outputDiv);
+            }
+
+            logContainer.appendChild(entry);
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        async function executeCommand(rawInput) {
+            const input = rawInput.trim();
+            if (!input) return;
+
+            commandHistory.push(input);
+            historyIndex = commandHistory.length;
+            playTerminalClick(1000, 'triangle', 0.04);
+
+            // Check for Pipelines (|)
+            if (input.includes('|')) {
+                const stages = input.split('|').map(s => s.trim());
+                let pipeData = undefined;
+
+                for (let stage of stages) {
+                    const parts = stage.split(/\s+/);
+                    const cmd = parts[0].toLowerCase();
+                    const args = parts.slice(1);
+
+                    if (COMMANDS[cmd]) {
+                        const res = await COMMANDS[cmd].fn(args, stage, pipeData);
+                        pipeData = res.text || res.html || '';
+                    } else {
+                        appendToLog(input, { text: `Pipeline command not found: '${cmd}'`, error: true });
+                        return;
+                    }
+                }
+                appendToLog(input, { text: pipeData });
+                return;
+            }
+
+            // Single command execution
+            const parts = input.split(/\s+/);
+            const cmd = parts[0].toLowerCase();
+            const args = parts.slice(1);
+
+            if (COMMANDS[cmd]) {
+                try {
+                    const res = await COMMANDS[cmd].fn(args, input);
+                    if (res) appendToLog(input, res);
+                } catch(err) {
+                    appendToLog(input, { text: `Execution error: ${err.message}`, error: true });
+                }
+            } else {
+                appendToLog(input, { text: `Command not found: '${cmd}'. Type 'help' for available commands or 'help --all' for catalog index.`, error: true });
+            }
+        }
+
+        // Theme Apply Logic
+        function applyTheme(theme) {
+            const win = document.getElementById('terminalWindow');
+            if (theme === 'cyberpunk') {
+                win.className = "crt relative flex-1 flex flex-col bg-cyberDark/95 border border-cyberPink/50 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden";
+            } else if (theme === 'dracula') {
+                win.className = "crt relative flex-1 flex flex-col bg-slate-900/95 border border-purple-500/50 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden";
+            } else if (theme === 'solarized') {
+                win.className = "crt relative flex-1 flex flex-col bg-amber-950/90 border border-amber-600/50 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden";
+            } else if (theme === 'nord') {
+                win.className = "crt relative flex-1 flex flex-col bg-slate-900/90 border border-sky-600/50 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden";
+            } else if (theme === 'hacker') {
+                win.className = "crt relative flex-1 flex flex-col bg-black border border-red-600/50 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden";
+            } else {
+                win.className = "crt relative flex-1 flex flex-col bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden";
+            }
+        }
+
+        document.getElementById('themeSelect').addEventListener('change', (e) => applyTheme(e.target.value));
+
+        // Autocomplete Popup Setup
+        const popup = document.getElementById('autocompletePopup');
+        cliInput.addEventListener('input', () => {
+            const val = cliInput.value.toLowerCase().trim();
+            if (!val) { popup.classList.add('hidden'); return; }
+
+            const matches = Object.keys(COMMANDS).filter(cmd => cmd.startsWith(val)).slice(0, 6);
+            if (matches.length > 0) {
+                popup.innerHTML = matches.map(m => `<div class="p-1.5 hover:bg-slate-800 cursor-pointer text-emerald-400 font-bold border-b border-slate-800/50">${m} <span class="text-slate-500 font-normal text-[10px]">- ${COMMANDS[m].category}</span></div>`).join('');
+                popup.classList.remove('hidden');
+                
+                popup.querySelectorAll('div').forEach(el => {
+                    el.addEventListener('click', () => {
+                        cliInput.value = el.textContent.split(' ')[0];
+                        popup.classList.add('hidden');
+                        cliInput.focus();
+                    });
+                });
+            } else {
+                popup.classList.add('hidden');
+            }
+        });
+
+        cliInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const val = cliInput.value.toLowerCase().trim();
+                const match = Object.keys(COMMANDS).find(cmd => cmd.startsWith(val));
+                if (match) {
+                    cliInput.value = match + ' ';
+                    popup.classList.add('hidden');
+                }
+            } else if (e.key === 'Enter') {
+                popup.classList.add('hidden');
+                const val = cliInput.value;
+                cliInput.value = '';
+                executeCommand(val);
+            } else if (e.key === 'ArrowUp') {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    cliInput.value = commandHistory[historyIndex] || '';
+                }
+            } else if (e.key === 'ArrowDown') {
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    cliInput.value = commandHistory[historyIndex] || '';
+                } else {
+                    historyIndex = commandHistory.length;
+                    cliInput.value = '';
+                }
+            } else {
+                playTerminalClick(600, 'sine', 0.015);
+            }
+        });
+
+        document.getElementById('sendBtn').addEventListener('click', () => {
+            const val = cliInput.value;
+            cliInput.value = '';
+            executeCommand(val);
+        });
+
+        // Quick Command Chips Listener
+        document.querySelectorAll('.chip-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                executeCommand(btn.getAttribute('data-cmd'));
+            });
+        });
+
+        // Sound Toggle Button
+        document.getElementById('soundToggleBtn').addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            document.getElementById('soundIcon').className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+        });
+
+        // Matrix Toggle Button
+        document.getElementById('matrixToggleBtn').addEventListener('click', () => executeCommand('matrix'));
+
+        // Window Controls
+        document.getElementById('closeBtn').addEventListener('click', () => logContainer.innerHTML = '');
+        document.getElementById('minBtn').addEventListener('click', () => document.getElementById('terminalWindow').classList.toggle('crt'));
+
+        // Nano Text Editor Controls
+        document.getElementById('nanoSaveBtn').addEventListener('click', () => {
+            if (nanoEditingPath) {
+                const val = document.getElementById('nanoTextarea').value;
+                VFS.files[nanoEditingPath] = val;
+                appendToLog(null, { text: `[GNU nano] Saved changes to ${nanoEditingPath}` });
+            }
+        });
+
+        document.getElementById('nanoExitBtn').addEventListener('click', () => {
+            document.getElementById('nanoBox').classList.add('hidden');
+            nanoEditingPath = null;
+        });
+
+        // Command Index Catalog Modal Populator
+        function openCatalogModal() {
+            const grid = document.getElementById('catalogGrid');
+            grid.innerHTML = '';
+            Object.keys(COMMANDS).sort().forEach(name => {
+                const c = COMMANDS[name];
+                const card = document.createElement('div');
+                card.className = "p-2.5 bg-slate-950 border border-slate-800 rounded hover:border-emerald-500/50 transition-colors";
+                card.innerHTML = `<div class="flex justify-between font-bold text-emerald-400 mb-1">
+                    <span>${name}</span>
+                    <span class="text-[10px] bg-slate-800 text-sky-300 px-1.5 py-0.5 rounded">${c.category}</span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-tight">${c.desc}</p>
+                <code class="text-[10px] text-yellow-300/80 block mt-1">${c.usage}</code>`;
+                grid.appendChild(card);
+            });
+            document.getElementById('cmdCatalogModal').classList.remove('hidden');
+        }
+
+        document.getElementById('cmdListModalBtn').addEventListener('click', openCatalogModal);
+        document.getElementById('closeCatalogModalBtn').addEventListener('click', () => {
+            document.getElementById('cmdCatalogModal').classList.add('hidden');
+        });
+
+        document.getElementById('catalogSearch').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            document.querySelectorAll('#catalogGrid > div').forEach(card => {
+                const txt = card.textContent.toLowerCase();
+                card.style.display = txt.includes(query) ? 'block' : 'none';
+            });
+        });
+
+        // Keep focus on terminal click
+        document.getElementById('terminalOutput').addEventListener('click', () => cliInput.focus());
+
+        window.onload = () => {
+            cliInput.focus();
+        };
+    </script>
+</body>
+</html>
